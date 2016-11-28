@@ -7,10 +7,16 @@
   (q/color-mode :rgb)
   (q/stroke 255 0 0))
 
-(defn draw [state])
+(defn draw [state]
+  (q/line 0 0 (q/mouse-x) (q/mouse-y))
+  (q/line 200 0 (q/mouse-x) (q/mouse-y))
+  (q/line 0 200 (q/mouse-x) (q/mouse-y))
+  (q/line 200 200 (q/mouse-x) (q/mouse-y)))
 
 (q/defsketch klarna-dojo-quil
+  :title "You can see lines"
   :host "klarna-dojo-quil"
   :size [500 500]
   :setup setup
-  :draw draw)
+  :draw draw
+  :features [:keep-on-top])
