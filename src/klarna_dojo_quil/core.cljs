@@ -19,8 +19,8 @@
 
 (def ball {:circumference 20
            :color [0 0 255]
-           :velocity {:dx 2
-                      :dy 2}})
+           :velocity {:dx 5
+                      :dy 5}})
 
 (def pressed-key (atom nil))
 
@@ -112,12 +112,27 @@
         (assoc-in-if (> y max-y) [:ball :y] (- max-y (- y max-y)))
         (update-in-if (> y max-y) [:ball :dy] #(* % -1)))))
 
+(defn bounce-off-paddle [state]
+  (let [{ball-x :x, ball-y :y, dy :dy} (:ball state)
+        {paddle-x :x, paddle-y :y} (:paddle state)
+        radius (/ (:circumference ball) 2)
+        max-y (- paddle-y radius)
+        min-x (- paddle-x (/ radius 2))
+        max-x (+ paddle-x (:width paddle) (/ radius 2))
+        collision? (and (> ball-y max-y)
+                        (> ball-x min-x)
+                        (< ball-x max-x))]
+    (-> state
+        (assoc-in-if collision? [:ball :y] (- max-y (- max-y ball-y)))
+        (update-in-if collision? [:ball :dy] #(* % -1)))))
+
 (defn bounce-ball [state]
   (-> state
       bounce-off-left
       bounce-off-right
       bounce-off-top
-      bounce-off-bottom))
+      bounce-off-bottom
+      bounce-off-paddle))
 
 (defn update-state [state]
   (let [{:keys [dx dy]} (:ball state)]
