@@ -17,7 +17,7 @@
              :speed 10
              :color [0 0 0]})
 
-(def ball {:circumference 20
+(def ball {:radius 10
            :color [0 0 255]
            :velocity {:dx 5
                       :dy 5}})
@@ -82,43 +82,31 @@
 
 (defn bounce-off-left [state]
   (let [{:keys [x dx]} (:ball state)
-        radius (/ (:circumference ball) 2)
-        min-x radius]
+        min-x (:radius ball)]
     (-> state
         (assoc-in-if (< x min-x) [:ball :x] (+ min-x (- min-x x)))
         (update-in-if (< x min-x) [:ball :dx] #(* % -1)))))
 
 (defn bounce-off-right [state]
   (let [{:keys [x dx]} (:ball state)
-        radius (/ (:circumference ball) 2)
-        max-x (- (:width screen) radius)]
+        max-x (- (:width screen) (:radius ball))]
     (-> state
         (assoc-in-if (> x max-x) [:ball :x] (- max-x (- x max-x)))
         (update-in-if (> x max-x) [:ball :dx] #(* % -1)))))
 
 (defn bounce-off-top [state]
   (let [{:keys [y dy]} (:ball state)
-        radius (/ (:circumference ball) 2)
-        min-y radius]
+        min-y (:radius ball)]
     (-> state
         (assoc-in-if (< y min-y) [:ball :y] (- min-y (- min-y y)))
         (update-in-if (< y min-y) [:ball :dy] #(* % -1)))))
 
-(defn bounce-off-bottom [state]
-  (let [{:keys [y dy]} (:ball state)
-        radius (/ (:circumference ball) 2)
-        max-y (- (:height screen) radius)]
-    (-> state
-        (assoc-in-if (> y max-y) [:ball :y] (- max-y (- y max-y)))
-        (update-in-if (> y max-y) [:ball :dy] #(* % -1)))))
-
 (defn bounce-off-paddle [state]
   (let [{ball-x :x, ball-y :y, dy :dy} (:ball state)
         {paddle-x :x, paddle-y :y} (:paddle state)
-        radius (/ (:circumference ball) 2)
-        max-y (- paddle-y radius)
-        min-x (- paddle-x (/ radius 2))
-        max-x (+ paddle-x (:width paddle) (/ radius 2))
+        max-y (- paddle-y (:radius ball))
+        min-x (- paddle-x (/ (:radius ball) 2))
+        max-x (+ paddle-x (:width paddle) (/ (:radius ball) 2))
         collision? (and (> ball-y max-y)
                         (> ball-x min-x)
                         (< ball-x max-x))]
@@ -131,8 +119,13 @@
       bounce-off-left
       bounce-off-right
       bounce-off-top
-      bounce-off-bottom
       bounce-off-paddle))
+
+(defn handle-out-of-bounds [state]
+  (let [max-y (+ (:height screen) (:radius ball))]
+    (if (> (get-in state [:ball :y]) max-y)
+      (assoc state :game-over? true)
+      state)))
 
 (defn update-state [state]
   (let [{:keys [dx dy]} (:ball state)]
@@ -140,7 +133,8 @@
         (update-in [:ball :x] #(+ % dx))
         (update-in [:ball :y] #(+ % dy))
         move-paddle
-        bounce-ball)))
+        bounce-ball
+        handle-out-of-bounds)))
 
 (defn clear-screen! []
   (apply q/background (:color screen)))
@@ -151,7 +145,8 @@
 
 (defn draw-ball! [state]
   (let [{:keys [x y]} (:ball state)
-        {:keys [circumference color]} ball]
+        {:keys [radius color]} ball
+        circumference (* 2 radius)]
     (set-color! color)
     (q/ellipse x y circumference circumference)))
 
@@ -162,18 +157,22 @@
     (q/rect x y width height)))
 
 (defn draw-score! [state]
-  (set-color! (:color scoreboard))
-  (q/text-align :left :top)
-  (-> state
-      (assoc :pressed-key @pressed-key)
-      pr-str
-      (q/text (:x scoreboard) (:y scoreboard))))
+  (let [text (if (:game-over? state)
+               "GAME OVER!"
+               (-> state
+                   (assoc :pressed-key @pressed-key)
+                   pr-str))]
+    (set-color! (:color scoreboard))
+    (q/text-align :left :top)
+    (q/text text (:x scoreboard) (:y scoreboard))))
 
 (defn draw-state! [state]
   (clear-screen!)
   (draw-paddle! state)
   (draw-ball! state)
-  (draw-score! state))
+  (draw-score! state)
+  (when (:game-over? state)
+    (q/no-loop)))
 
 (q/defsketch klarna-dojo-quil
   :host "klarna-dojo-quil"
