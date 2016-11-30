@@ -14,6 +14,7 @@
 
 (def paddle {:width 80
              :height 20
+             :speed 10
              :color [0 0 0]})
 
 (def ball {:circumference 20
@@ -21,7 +22,21 @@
            :velocity {:dx 2
                       :dy 2}})
 
+(def pressed-key (atom nil))
+
+(def keycode-right 39)
+(def keycode-left 37)
+
+(defn install-event-handlers! []
+  (.addEventListener js/window
+                     "keydown"
+                     (fn [ev] (reset! pressed-key (.-keyCode ev))))
+  (.addEventListener js/window
+                     "keyup"
+                     (fn [_] (reset! pressed-key nil))))
+
 (defn setup []
+  (install-event-handlers!)
   (q/frame-rate framerate)
   (q/color-mode :rgb)
   {:ball (merge {:x (/ (:width screen) 2)
@@ -29,6 +44,31 @@
                 (:velocity ball))
    :paddle {:x (- (/ (:width screen) 2) (/ (:width paddle) 2))
             :y (- (:height screen) (:height paddle))}})
+
+(defn move-left [x]
+  (let [new-x (- x (:speed paddle))
+        min-x 0]
+    (if (< new-x min-x)
+      min-x
+      new-x)))
+
+(defn move-right [x]
+  (let [new-x (+ x (:speed paddle))
+        max-x (- (:width screen) (:width paddle))]
+    (if (> new-x max-x)
+      max-x
+      new-x)))
+
+(defn move-paddle [state]
+  (cond
+    (= @pressed-key keycode-left)
+    (update-in state [:paddle :x] move-left)
+
+    (= @pressed-key keycode-right)
+    (update-in state [:paddle :x] move-right)
+
+    :default
+    state))
 
 (defn assoc-in-if [m truthy? path v]
   (if truthy?
@@ -84,6 +124,7 @@
     (-> state
         (update-in [:ball :x] #(+ % dx))
         (update-in [:ball :y] #(+ % dy))
+        move-paddle
         bounce-ball)))
 
 (defn clear-screen! []
@@ -108,7 +149,10 @@
 (defn draw-score! [state]
   (set-color! (:color scoreboard))
   (q/text-align :left :top)
-  (q/text (pr-str state) (:x scoreboard) (:y scoreboard)))
+  (-> state
+      (assoc :pressed-key @pressed-key)
+      pr-str
+      (q/text (:x scoreboard) (:y scoreboard))))
 
 (defn draw-state! [state]
   (clear-screen!)
